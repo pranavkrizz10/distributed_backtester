@@ -20,8 +20,6 @@ from .db import Base
 
 
 class Bar(Base):
-    """A single OHLCV bar for a ticker."""
-
     __tablename__ = "bars"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -51,7 +49,7 @@ class BacktestJob(Base):
 
     __tablename__ = "backtest_jobs"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # uuid4 hex-with-dashes
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
     status: Mapped[JobStatus] = mapped_column(
         SAEnum(JobStatus, name="job_status"), nullable=False, default=JobStatus.queued
     )
@@ -60,6 +58,13 @@ class BacktestJob(Base):
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     cache_hit: Mapped[bool] = mapped_column(default=False)
+
+    # CHECKPOINTING: completed walk-forward folds (each carrying its own OOS
+    # returns) saved after every fold. On a retried/resumed run, the worker
+    # loads this, skips folds already here, and continues from the next one.
+    # Cleared back to None once the job reaches a terminal state (done/failed)
+    # since the full result/error supersedes it at that point.
+    checkpoint: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: dt.datetime.now(dt.timezone.utc)
